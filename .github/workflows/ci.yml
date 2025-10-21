@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        env:
+          # Vars mínimas para que la app arranque en tests
+          MONGO_URI: mongodb://localhost:27017/kunna_test
+          KUNNA_URL: https://openapi.kunna.es/data/dummy-token   # no se usa en estos smoke
+          TIME_START: 2025-01-17T05:18:38Z
+          TIME_END: 2025-01-19T05:18:38Z
+        run: npm test
+
+  # (Opcional) Build & Push Docker si pones secrets del registry
+  docker:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push
+        run: |
+          IMAGE=ghcr.io/${{ github.repository_owner }}/kunna-acquisition-api:$(echo $GITHUB_SHA | cut -c1-7)
+          docker build -t $IMAGE .
+          docker push $IMAGE

@@ -1,0 +1,75 @@
+openapi: 3.0.3
+info:
+  title: Kunna Acquisition API
+  version: 1.0.0
+servers:
+  - url: http://localhost:5001/api/v1
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /collect:
+    post:
+      summary: Trigger ingestion from KUNNA and store in Mongo
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                time_start: { type: string, format: date-time }
+                time_end:   { type: string, format: date-time }
+                limit:      { type: integer, minimum: 1, maximum: 1000, default: 100 }
+                count:      { type: boolean, default: false }
+                order:      { type: string, enum: [ASC, DESC], default: DESC }
+      responses:
+        '200':
+          description: Ingestion result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  inserted: { type: integer }
+                  skipped: { type: integer }
+  /page:
+    get:
+      summary: Paged read of stored measurements
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 5 }
+        - in: query
+          name: metric
+          schema: { type: string }
+        - in: query
+          name: deviceId
+          schema: { type: string }
+      responses:
+        '200':
+          description: Page result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  columns:
+                    type: array
+                    items: { type: string }
+                  values:
+                    type: array
+                    items:
+                      type: array
+                      items: {}
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                  total: { type: integer }
