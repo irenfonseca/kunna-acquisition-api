@@ -8,6 +8,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:7
+        ports: ['27017:27017']
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })' || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -20,38 +31,22 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Wait for Mongo
+        run: |
+          for i in {1..30}; do
+            nc -z 127.0.0.1 27017 && echo "Mongo is up" && exit 0
+            echo "Waiting Mongo... ($i)"
+            sleep 2
+          done
+          echo "Mongo not available"; exit 1
+
       - name: Build
         run: npm run build
 
       - name: Test
         env:
-          # Vars mínimas para que la app arranque en tests
           MONGO_URI: mongodb://localhost:27017/kunna_test
-          KUNNA_URL: https://openapi.kunna.es/data/dummy-token   # no se usa en estos smoke
+          KUNNA_URL: https://openapi.kunna.es/data/dummy-token
           TIME_START: 2025-01-17T05:18:38Z
           TIME_END: 2025-01-19T05:18:38Z
         run: npm test
-
-  # (Opcional) Build & Push Docker si pones secrets del registry
-  docker:
-    if: github.ref == 'refs/heads/main'
-    needs: test
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build & Push
-        run: |
-          IMAGE=ghcr.io/${{ github.repository_owner }}/kunna-acquisition-api:$(echo $GITHUB_SHA | cut -c1-7)
-          docker build -t $IMAGE .
-          docker push $IMAGE
