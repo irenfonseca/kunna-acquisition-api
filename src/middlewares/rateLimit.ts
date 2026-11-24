@@ -1,23 +1,33 @@
-// src/middlewares/rateLimit.ts
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import type { RequestHandler } from 'express';
 
-const limiter = new RateLimiterMemory({ points: 100, duration: 60 });
+const limiter = new RateLimiterMemory({
+    points: 100,
+    duration: 60
+});
 
-export const rateLimit: RequestHandler = async (req, res, next) => {
-  try {
-    // Siempre forzamos un string;
+export const rateLimit: RequestHandler = async (
+    req, res, next
+) => {
+
     const key =
-      req.ip ??
-      req.socket.remoteAddress ??
-      (Array.isArray(req.headers['x-forwarded-for'])
-        ? req.headers['x-forwarded-for'][0]
-        : req.headers['x-forwarded-for']?.toString()) ??
-      'unknown';
+        req.ip ??
+        req.socket.remoteAddress ??
+        'unknown';
 
-    await limiter.consume(String(key)); // <- forzamos string aquí también
-    next();
-  } catch {
-    res.status(429).json({ error: { message: 'Too many requests' } });
-  }
+    try {
+
+        await limiter.consume(key);
+
+        next();
+
+    } catch {
+
+        res.status(429).json({
+            error: {
+                message: 'Too many requests',
+                status: 429
+            }
+        });
+    }
 };

@@ -1,19 +1,38 @@
 openapi: 3.0.3
+
 info:
   title: Kunna Acquisition API
   version: 1.0.0
+  description: API for acquiring and storing KUNNA measurements in MongoDB.
+
 servers:
   - url: http://localhost:5001/api/v1
+
 paths:
+
   /health:
     get:
       summary: Health check
       responses:
         '200':
-          description: OK
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
   /collect:
     post:
-      summary: Trigger ingestion from KUNNA and store in Mongo
+      summary: Trigger ingestion from KUNNA and store in MongoDB
+      description: >
+        Retrieves measurements from KUNNA and stores them in MongoDB.
+        Missing parameters are taken from the server configuration.
+        Existing measurements are skipped.
+
       requestBody:
         required: false
         content:
@@ -21,11 +40,30 @@ paths:
             schema:
               type: object
               properties:
-                time_start: { type: string, format: date-time }
-                time_end:   { type: string, format: date-time }
-                limit:      { type: integer, minimum: 1, maximum: 1000, default: 100 }
-                count:      { type: boolean, default: false }
-                order:      { type: string, enum: [ASC, DESC], default: DESC }
+                time_start:
+                  type: string
+                  format: date-time
+                  example: "2026-01-01T00:00:00Z"
+
+                time_end:
+                  type: string
+                  format: date-time
+                  example: "2026-01-05T00:00:00Z"
+
+                magnitude:
+                  type: string
+                  example: electricityfacility
+
+                device_id:
+                  type: string
+                  example: "6339566"
+
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 4000
+                  default: 100
+
       responses:
         '200':
           description: Ingestion result
@@ -34,25 +72,52 @@ paths:
               schema:
                 type: object
                 properties:
-                  ok: { type: boolean }
-                  inserted: { type: integer }
-                  skipped: { type: integer }
+                  ok:
+                    type: boolean
+                    example: true
+                  inserted:
+                    type: integer
+                    example: 100
+                  skipped:
+                    type: integer
+                    example: 0
+
   /page:
     get:
       summary: Paged read of stored measurements
+      description: >
+        Retrieves measurements stored in MongoDB,
+        ordered by timestamp in descending order.
+
       parameters:
         - in: query
           name: page
-          schema: { type: integer, minimum: 1, default: 1 }
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+
         - in: query
           name: pageSize
-          schema: { type: integer, minimum: 1, maximum: 100, default: 5 }
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 5
+
         - in: query
           name: metric
-          schema: { type: string }
+          description: Measurement magnitude
+          schema:
+            type: string
+            example: electricityfacility
+
         - in: query
           name: deviceId
-          schema: { type: string }
+          schema:
+            type: string
+            example: "6339566"
+
       responses:
         '200':
           description: Page result
@@ -61,15 +126,29 @@ paths:
               schema:
                 type: object
                 properties:
-                  ok: { type: boolean }
+                  ok:
+                    type: boolean
                   columns:
                     type: array
-                    items: { type: string }
+                    items:
+                      type: string
                   values:
                     type: array
                     items:
                       type: array
                       items: {}
-                  page: { type: integer }
-                  pageSize: { type: integer }
-                  total: { type: integer }
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+                  total:
+                    type: integer
+
+              example:
+                ok: true
+                columns: [time, deviceId, metric, value, unit]
+                values:
+                  - ["2026-01-01T00:00:00Z", "6339566", electricityfacility, 2.25, kWh]
+                page: 1
+                pageSize: 5
+                total: 100

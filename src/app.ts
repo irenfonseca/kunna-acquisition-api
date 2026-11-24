@@ -7,6 +7,8 @@ import { rateLimit } from './middlewares/rateLimit.js';
 import { errorHandler } from './middlewares/error.js';
 import { mountSwagger } from './docs/swagger.js';
 import { register } from './metrics.js';
+import { logger } from './logger.js';
+import { metricsMiddleware } from './middlewares/metrics.js';
 
 
 export function buildApp() {                                  // Exporta una función que construye y devuelve la app Express
@@ -16,8 +18,9 @@ export function buildApp() {                                  // Exporta una fun
     app.use(helmet());                                         // Seguridad: añade cabeceras HTTP (XSS, HSTS, etc.)
     app.use(cors());                                           // Habilita CORS (permite peticiones desde otros orígenes)
     app.use(express.json());                                   // Parsea cuerpos JSON en req.body
-    app.use(pinoHttp());                                       // Logging HTTP con pino (método, url, estado, latencia)
-
+    app.use(pinoHttp({ logger }));                             // Logging HTTP con pino (método, url, estado, latencia)
+    app.use(metricsMiddleware);                                // Registra el número de peticiones HTTP, su latencia y códigos de estado para Prometheus    
+    
     // Swagger primero (antes de 404) -> /docs y /openapi.json
     mountSwagger(app);                                         // Monta la UI y el JSON de OpenAPI para documentar la API
 
